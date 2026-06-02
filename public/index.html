@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WhatsApp OTP — Admin Dashboard</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0b141a; --panel: #111b21; --panel2: #1d282f;
+      --border: #222d34; --text: #e9edef; --muted: #8696a0;
+      --green: #00a884; --green2: #06cf9c; --red: #f15c6d; --yellow: #f0b232;
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    /* LOGIN */
+    .login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+    .login-card { background: var(--panel); border: 1px solid var(--border); border-radius: 16px; padding: 32px; width: 100%; max-width: 360px; }
+    .login-card h1 { font-size: 20px; margin-bottom: 6px; }
+    .login-card p { color: var(--muted); font-size: 13px; margin-bottom: 22px; }
+
+    label { display: block; font-size: 13px; color: var(--muted); margin: 14px 0 6px; }
+    input { width: 100%; padding: 12px 14px; border-radius: 10px; border: 1px solid #2a3942; background: var(--panel2); color: var(--text); font-size: 15px; }
+    input:focus { outline: none; border-color: var(--green); }
+    button { padding: 12px 16px; background: var(--green); color: #fff; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; }
+    button:hover { background: var(--green2); }
+    button:disabled { background: #2a3942; cursor: not-allowed; }
+    button.ghost { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    button.danger { background: transparent; border: 1px solid var(--red); color: var(--red); }
+    button.danger:hover { background: rgba(241,92,109,.12); }
+    .full { width: 100%; }
+
+    /* DASHBOARD */
+    .topbar { display: flex; align-items: center; justify-content: space-between; padding: 16px 24px; background: var(--panel); border-bottom: 1px solid var(--border); }
+    .topbar .brand { font-size: 17px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+    .topbar .right { display: flex; align-items: center; gap: 14px; }
+    .conn { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+    .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--yellow); }
+    .dot.ready { background: var(--green); }
+    .dot.off { background: var(--red); }
+
+    .container { max-width: 1100px; margin: 0 auto; padding: 24px; }
+    .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+    .stat { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 18px; }
+    .stat .num { font-size: 28px; font-weight: 700; }
+    .stat .lbl { color: var(--muted); font-size: 13px; margin-top: 4px; }
+    .stat.green .num { color: var(--green2); }
+    .stat.red .num { color: var(--red); }
+
+    .cols { display: grid; grid-template-columns: 1fr 1.4fr; gap: 16px; }
+    .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 20px; }
+    .panel h2 { font-size: 15px; margin-bottom: 14px; }
+
+    .qr-box { text-align: center; padding: 16px; background: #fff; border-radius: 12px; }
+    .qr-box img { width: 100%; max-width: 240px; }
+    .qr-hint { color: var(--muted); font-size: 12px; margin-top: 12px; text-align: center; }
+    .user-info { background: var(--panel2); border-radius: 10px; padding: 14px; font-size: 14px; }
+    .user-info .num { font-size: 17px; font-weight: 600; }
+    .user-info .sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+
+    .msg { margin-top: 14px; padding: 11px 14px; border-radius: 10px; font-size: 13px; display: none; }
+    .msg.ok { background: rgba(0,168,132,.15); color: var(--green2); display: block; }
+    .msg.err { background: rgba(241,92,109,.15); color: var(--red); display: block; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--border); }
+    th { color: var(--muted); font-weight: 500; }
+    .badge { font-size: 11px; padding: 3px 8px; border-radius: 20px; }
+    .badge.success { background: rgba(0,168,132,.15); color: var(--green2); }
+    .badge.failed { background: rgba(241,92,109,.15); color: var(--red); }
+    .empty { color: var(--muted); text-align: center; padding: 24px; font-size: 13px; }
+
+    .cred-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 8px; }
+    .copy-field { display: flex; align-items: center; gap: 8px; background: var(--panel2); border: 1px solid #2a3942; border-radius: 10px; padding: 8px 10px; }
+    .copy-field code { flex: 1; font-size: 13px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: 'SF Mono', Menlo, monospace; }
+    .copy-btn { padding: 6px 12px; font-size: 12px; border-radius: 8px; background: var(--green); }
+    .copy-btn.ghost-mini { background: transparent; border: 1px solid var(--border); color: var(--muted); }
+    .code-block { position: relative; background: #0d171e; border: 1px solid #2a3942; border-radius: 10px; padding: 14px; margin-top: 6px; }
+    .code-block pre { font-family: 'SF Mono', Menlo, monospace; font-size: 12.5px; color: #c3cdd4; white-space: pre-wrap; word-break: break-all; line-height: 1.6; }
+    .code-block .copy-btn { position: absolute; top: 10px; right: 10px; }
+    .wl-box { display: flex; align-items: center; gap: 8px; background: var(--panel2); border: 1px solid #2a3942; border-radius: 10px; padding: 10px 12px; font-size: 13px; flex-wrap: wrap; }
+    .wl-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); flex: none; }
+    .wl-dot.on { background: var(--green); }
+    .wl-dot.off { background: var(--yellow); }
+    .wl-ips { color: var(--muted); font-family: 'SF Mono', Menlo, monospace; font-size: 12px; }
+    .sec-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    @media (max-width: 800px) { .sec-grid { grid-template-columns: 1fr; } }
+    .panel code { background: var(--panel2); padding: 2px 6px; border-radius: 5px; font-size: 12px; }
+    @media (max-width: 800px) { .cred-grid { grid-template-columns: 1fr; } }
+    .hidden { display: none !important; }
+    @media (max-width: 800px) { .grid { grid-template-columns: repeat(2,1fr); } .cols { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+
+  <!-- ============ LOGIN ============ -->
+  <div id="loginView" class="login-wrap">
+    <div class="login-card">
+      <h1>🔐 Admin Login</h1>
+      <p>Masuk untuk mengelola WhatsApp OTP</p>
+      <label for="loginPass">Password Admin</label>
+      <input id="loginPass" type="password" placeholder="••••••••" />
+      <div id="totpField" class="hidden">
+        <label for="loginTotp">Kode Authenticator (2FA)</label>
+        <input id="loginTotp" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6 digit" />
+      </div>
+      <button class="full" id="loginBtn" style="margin-top:18px">Masuk</button>
+      <div id="loginMsg" class="msg"></div>
+    </div>
+  </div>
+
+  <!-- ============ DASHBOARD ============ -->
+  <div id="dashView" class="hidden">
+    <div class="topbar">
+      <div class="brand">💬 WhatsApp OTP <span style="color:var(--muted);font-weight:400;font-size:13px">Admin</span></div>
+      <div class="right">
+        <div class="conn"><span class="dot" id="dot"></span><span id="connText">…</span></div>
+        <button class="ghost" id="logoutAdminBtn">Keluar</button>
+      </div>
+    </div>
+
+    <div class="container">
+      <!-- STATISTIK -->
+      <div class="grid">
+        <div class="stat"><div class="num" id="stTotal">0</div><div class="lbl">Total Terkirim</div></div>
+        <div class="stat"><div class="num" id="stToday">0</div><div class="lbl">Hari Ini</div></div>
+        <div class="stat green"><div class="num" id="stSuccess">0</div><div class="lbl">Sukses</div></div>
+        <div class="stat red"><div class="num" id="stFailed">0</div><div class="lbl">Gagal</div></div>
+      </div>
+
+      <div class="cols">
+        <!-- KIRI: koneksi + form -->
+        <div>
+          <div class="panel" style="margin-bottom:16px">
+            <h2>Koneksi WhatsApp</h2>
+            <!-- QR saat belum konek -->
+            <div id="qrArea" class="hidden">
+              <div class="qr-box"><img id="qrImg" alt="QR" /></div>
+              <p class="qr-hint">WhatsApp → Perangkat Tertaut → scan QR</p>
+            </div>
+            <!-- Info user saat konek -->
+            <div id="userArea" class="hidden">
+              <div class="user-info">
+                <div class="num" id="uNumber">—</div>
+                <div class="sub" id="uName">Terhubung</div>
+              </div>
+              <button class="danger full" id="unlinkBtn" style="margin-top:14px">Unlink Perangkat</button>
+            </div>
+            <div id="connectingArea" class="qr-hint">Menyambungkan…</div>
+          </div>
+
+          <div class="panel">
+            <h2>Kirim OTP</h2>
+            <label for="phone">Nomor Tujuan</label>
+            <input id="phone" type="tel" placeholder="08123456789" />
+            <label for="otp">Kode OTP (opsional)</label>
+            <input id="otp" type="text" placeholder="Kosongkan = generate otomatis" />
+            <button class="full" id="sendBtn" style="margin-top:18px">Kirim OTP</button>
+            <div id="sendMsg" class="msg"></div>
+          </div>
+        </div>
+
+        <!-- KANAN: riwayat -->
+        <div class="panel">
+          <h2>Riwayat Pengiriman</h2>
+          <table>
+            <thead><tr><th>#</th><th>Nomor</th><th>Status</th><th>Waktu</th></tr></thead>
+            <tbody id="historyBody"></tbody>
+          </table>
+          <div id="historyEmpty" class="empty">Belum ada pengiriman.</div>
+        </div>
+      </div>
+
+      <!-- INTEGRASI API (gaya Fonnte) -->
+      <div class="panel" style="margin-top:16px">
+        <h2>🔌 Integrasi API</h2>
+        <div class="cred-grid">
+          <div>
+            <label style="margin-top:0">API URL</label>
+            <div class="copy-field"><code id="apiUrl">—</code><button class="copy-btn" data-copy="apiUrl">Salin</button></div>
+          </div>
+          <div>
+            <label style="margin-top:0">Secret Key (Token)</label>
+            <div class="copy-field"><code id="secretKey">••••••••</code><button class="copy-btn ghost-mini" id="revealBtn">Lihat</button><button class="copy-btn" data-copy="secretKey">Salin</button></div>
+          </div>
+        </div>
+
+        <label style="margin-top:16px">Keamanan — IP Whitelist</label>
+        <div id="wlBox" class="wl-box">
+          <span class="wl-dot" id="wlDot"></span>
+          <span id="wlText">memuat…</span>
+          <span id="wlIps" class="wl-ips"></span>
+        </div>
+
+        <label>Contoh — cURL</label>
+        <div class="code-block"><pre id="exCurl"></pre><button class="copy-btn" data-copy="exCurl">Salin</button></div>
+
+        <label>Contoh — PHP</label>
+        <div class="code-block"><pre id="exPhp"></pre><button class="copy-btn" data-copy="exPhp">Salin</button></div>
+
+        <label>Contoh — Node.js (axios)</label>
+        <div class="code-block"><pre id="exNode"></pre><button class="copy-btn" data-copy="exNode">Salin</button></div>
+
+        <p class="qr-hint" style="text-align:left;margin-top:14px">
+          Endpoint: <code>POST /send</code> (pesan bebas) &amp; <code>POST /send-otp</code> (template OTP otomatis).
+          Body: <code>target</code>, <code>message</code> (atau <code>otp</code>). Auth: header <code>Authorization: &lt;Secret Key&gt;</code>.
+        </p>
+      </div>
+
+      <!-- KEAMANAN AKUN -->
+      <div class="panel" style="margin-top:16px">
+        <h2>🔒 Keamanan Akun</h2>
+        <div class="sec-grid">
+          <!-- Ganti password -->
+          <div>
+            <label style="margin-top:0">Ganti Password</label>
+            <input id="curPass" type="password" placeholder="Password saat ini" />
+            <input id="newPass" type="password" placeholder="Password baru (min. 6)" style="margin-top:8px" />
+            <button id="changePassBtn" class="full" style="margin-top:10px">Simpan Password</button>
+            <div id="passMsg" class="msg"></div>
+          </div>
+
+          <!-- 2FA -->
+          <div>
+            <label style="margin-top:0">Autentikasi 2 Faktor (TOTP)</label>
+            <div class="wl-box" style="margin-bottom:10px">
+              <span class="wl-dot" id="twoFaDot"></span>
+              <span id="twoFaText">memuat…</span>
+            </div>
+
+            <!-- saat nonaktif -->
+            <div id="twoFaOff">
+              <button id="setup2faBtn" class="full">Aktifkan 2FA</button>
+            </div>
+
+            <!-- proses setup (QR) -->
+            <div id="twoFaSetup" class="hidden">
+              <div class="qr-box" style="margin-top:6px"><img id="twoFaQr" alt="QR 2FA" /></div>
+              <p class="qr-hint">Scan dengan Google Authenticator, lalu masukkan 6 digit untuk konfirmasi.</p>
+              <p class="qr-hint" style="word-break:break-all">Kunci manual: <code id="twoFaSecret"></code></p>
+              <input id="enableTotp" type="text" inputmode="numeric" maxlength="6" placeholder="6 digit" />
+              <button id="enable2faBtn" class="full" style="margin-top:10px">Konfirmasi &amp; Aktifkan</button>
+            </div>
+
+            <!-- saat aktif -->
+            <div id="twoFaOn" class="hidden">
+              <input id="disablePass" type="password" placeholder="Password untuk menonaktifkan" />
+              <button id="disable2faBtn" class="danger full" style="margin-top:10px">Nonaktifkan 2FA</button>
+            </div>
+            <div id="twoFaMsg" class="msg"></div>
+          </div>
+        </div>
+        <p class="qr-hint" style="text-align:left;margin-top:14px">
+          Lupa password atau kehilangan authenticator? Jalankan di server:
+          <code>npm run reset-admin -- passwordBaru</code> (mereset password &amp; mematikan 2FA).
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    let ADMIN_TOKEN = sessionStorage.getItem('adminToken') || '';
+    let TOTP_ENABLED = false;
+
+    // Header auth untuk semua request admin (session token)
+    function headers() { return { 'Content-Type': 'application/json', 'x-admin-token': ADMIN_TOKEN }; }
+
+    // Cek apakah TOTP wajib, tampilkan field bila perlu
+    async function loadConfig() {
+      try {
+        const c = await (await fetch('/admin/config')).json();
+        TOTP_ENABLED = !!c.totpEnabled;
+        $('totpField').classList.toggle('hidden', !TOTP_ENABLED);
+      } catch {}
+    }
+
+    // ---------- LOGIN ----------
+    $('loginBtn').addEventListener('click', async () => {
+      const password = $('loginPass').value.trim();
+      const totp = $('loginTotp').value.trim();
+      if (!password) return;
+      if (TOTP_ENABLED && !totp) {
+        $('loginMsg').className = 'msg err'; $('loginMsg').textContent = 'Masukkan kode authenticator.'; return;
+      }
+      $('loginBtn').disabled = true;
+      try {
+        const r = await fetch('/admin/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password, totp }),
+        });
+        const d = await r.json();
+        if (r.ok && d.success && d.token) {
+          ADMIN_TOKEN = d.token;
+          sessionStorage.setItem('adminToken', d.token);
+          $('loginPass').value = ''; $('loginTotp').value = '';
+          showDashboard();
+        } else {
+          $('loginMsg').className = 'msg err';
+          $('loginMsg').textContent = d.message || 'Login gagal.';
+        }
+      } catch (e) {
+        $('loginMsg').className = 'msg err'; $('loginMsg').textContent = 'Server tidak terjangkau.';
+      } finally {
+        $('loginBtn').disabled = false;
+      }
+    });
+    $('loginPass').addEventListener('keydown', (e) => { if (e.key === 'Enter') (TOTP_ENABLED ? $('loginTotp') : $('loginBtn')).focus?.() || $('loginBtn').click(); });
+    $('loginTotp').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('loginBtn').click(); });
+
+    async function signOut() {
+      try { await fetch('/admin/signout', { method: 'POST', headers: headers() }); } catch {}
+      sessionStorage.removeItem('adminToken'); ADMIN_TOKEN = '';
+      $('dashView').classList.add('hidden'); $('loginView').classList.remove('hidden');
+    }
+    $('logoutAdminBtn').addEventListener('click', signOut);
+
+    function showDashboard() {
+      $('loginView').classList.add('hidden');
+      $('dashView').classList.remove('hidden');
+      refreshAll();
+      refreshSecurity();
+    }
+
+    // ---------- POLLING ----------
+    async function refreshStatus() {
+      try {
+        const d = await (await fetch('/status')).json();
+        if (d.ready) {
+          $('dot').className = 'dot ready'; $('connText').textContent = 'Terhubung';
+          $('qrArea').classList.add('hidden'); $('connectingArea').classList.add('hidden');
+          $('userArea').classList.remove('hidden');
+          $('uNumber').textContent = '+' + (d.user?.number || '');
+          $('uName').textContent = d.user?.name ? d.user.name : 'Terhubung';
+        } else if (d.qr) {
+          $('dot').className = 'dot'; $('connText').textContent = 'Menunggu scan';
+          $('qrImg').src = d.qr;
+          $('qrArea').classList.remove('hidden'); $('userArea').classList.add('hidden'); $('connectingArea').classList.add('hidden');
+        } else {
+          $('dot').className = 'dot off'; $('connText').textContent = 'Menyambungkan';
+          $('connectingArea').classList.remove('hidden'); $('qrArea').classList.add('hidden'); $('userArea').classList.add('hidden');
+        }
+      } catch { $('dot').className = 'dot off'; $('connText').textContent = 'Offline'; }
+    }
+
+    async function refreshStats() {
+      try {
+        const d = await (await fetch('/admin/stats', { headers: headers() })).json();
+        if (d.success) { $('stTotal').textContent = d.stats.total; $('stToday').textContent = d.stats.today; $('stSuccess').textContent = d.stats.success; $('stFailed').textContent = d.stats.failed; }
+      } catch {}
+    }
+
+    async function refreshHistory() {
+      try {
+        const d = await (await fetch('/admin/history', { headers: headers() })).json();
+        if (!d.success) return;
+        const tbody = $('historyBody'); tbody.innerHTML = '';
+        if (!d.history.length) { $('historyEmpty').style.display = 'block'; return; }
+        $('historyEmpty').style.display = 'none';
+        for (const h of d.history) {
+          const tr = document.createElement('tr');
+          const t = new Date(h.at).toLocaleString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+          tr.innerHTML = `<td>${h.id}</td><td>${h.phone}</td><td><span class="badge ${h.status}">${h.status === 'success' ? 'Sukses' : 'Gagal'}</span></td><td>${t}</td>`;
+          tbody.appendChild(tr);
+        }
+      } catch {}
+    }
+
+    // ---------- KREDENSIAL & CONTOH KODE ----------
+    let fullSecret = '';
+    let secretRevealed = false;
+    function maskSecret(s) { return s ? s.slice(0, 4) + '••••••••' + s.slice(-2) : '—'; }
+
+    function buildExamples(url, key) {
+      const ep = url + '/send';
+      $('exCurl').textContent =
+`curl -X POST ${ep} \\
+  -H "Authorization: ${key}" \\
+  -d "target=08123456789" \\
+  -d "message=Halo dari WhatsApp API"`;
+      $('exPhp').textContent =
+`$ch = curl_init();
+curl_setopt($ch, CURLOPT_URL, "${ep}");
+curl_setopt($ch, CURLOPT_POST, true);
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($ch, CURLOPT_HTTPHEADER, ["Authorization: ${key}"]);
+curl_setopt($ch, CURLOPT_POSTFIELDS, [
+  "target"  => "08123456789",
+  "message" => "Halo dari WhatsApp API",
+]);
+$response = curl_exec($ch);
+curl_close($ch);`;
+      $('exNode').textContent =
+`await axios.post("${ep}", {
+  target: "08123456789",
+  message: "Halo dari WhatsApp API",
+}, {
+  headers: { Authorization: "${key}" }
+});`;
+    }
+
+    async function refreshCredentials() {
+      try {
+        const d = await (await fetch('/admin/credentials', { headers: headers() })).json();
+        if (!d.success) return;
+        fullSecret = d.secretKey || '';
+        $('apiUrl').textContent = d.baseUrl;
+        $('secretKey').textContent = secretRevealed ? fullSecret : maskSecret(fullSecret);
+        buildExamples(d.baseUrl, secretRevealed ? fullSecret : 'SECRET_KEY_ANDA');
+        // status whitelist
+        const wl = d.whitelist || { enabled: false, ips: [] };
+        if (wl.enabled) {
+          $('wlDot').className = 'wl-dot on';
+          $('wlText').textContent = 'Aktif — hanya IP terdaftar yang boleh akses';
+          $('wlIps').textContent = wl.ips.join(', ');
+        } else {
+          $('wlDot').className = 'wl-dot off';
+          $('wlText').textContent = 'Nonaktif — semua IP diizinkan (isi ALLOWED_IPS di .env)';
+          $('wlIps').textContent = '';
+        }
+      } catch {}
+    }
+
+    $('revealBtn').addEventListener('click', () => {
+      secretRevealed = !secretRevealed;
+      $('revealBtn').textContent = secretRevealed ? 'Sembunyi' : 'Lihat';
+      $('secretKey').textContent = secretRevealed ? fullSecret : maskSecret(fullSecret);
+      buildExamples($('apiUrl').textContent, secretRevealed ? fullSecret : 'SECRET_KEY_ANDA');
+    });
+
+    // Tombol salin universal
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('.copy-btn[data-copy]');
+      if (!btn) return;
+      let text = $(btn.dataset.copy).textContent;
+      if (btn.dataset.copy === 'secretKey') text = fullSecret; // selalu salin yang asli
+      navigator.clipboard.writeText(text).then(() => {
+        const old = btn.textContent; btn.textContent = '✓'; setTimeout(() => (btn.textContent = old), 1200);
+      });
+    });
+
+    function refreshAll() { refreshStatus(); refreshStats(); refreshHistory(); refreshCredentials(); }
+    setInterval(() => { if (!$('dashView').classList.contains('hidden')) refreshAll(); }, 3000);
+
+    // ---------- KIRIM OTP ----------
+    $('sendBtn').addEventListener('click', async () => {
+      const phone = $('phone').value.trim();
+      const otp = $('otp').value.trim();
+      const m = $('sendMsg'); m.className = 'msg';
+      if (!phone) { m.className = 'msg err'; m.textContent = 'Nomor wajib diisi.'; return; }
+      $('sendBtn').disabled = true; $('sendBtn').textContent = 'Mengirim…';
+      try {
+        const r = await fetch('/send-otp', { method: 'POST', headers: headers(), body: JSON.stringify(otp ? { target: phone, otp } : { target: phone }) });
+        if (r.status === 401) { signOut(); return; }
+        const d = await r.json();
+        if (d.status) { m.className = 'msg ok'; m.textContent = '✅ Terkirim! Kode: ' + d.otp; $('phone').value = ''; $('otp').value = ''; }
+        else { m.className = 'msg err'; m.textContent = '❌ ' + (d.detail || d.message); }
+        refreshStats(); refreshHistory();
+      } catch (e) { m.className = 'msg err'; m.textContent = '❌ ' + e.message; }
+      finally { $('sendBtn').disabled = false; $('sendBtn').textContent = 'Kirim OTP'; }
+    });
+
+    // ---------- UNLINK ----------
+    $('unlinkBtn').addEventListener('click', async () => {
+      $('unlinkBtn').disabled = true;
+      try {
+        await fetch('/admin/logout', { method: 'POST', headers: headers() });
+      } catch {}
+      $('unlinkBtn').disabled = false;
+      refreshStatus();
+    });
+
+    // ---------- KEAMANAN AKUN ----------
+    async function refreshSecurity() {
+      try {
+        const d = await (await fetch('/admin/security', { headers: headers() })).json();
+        if (!d.success) return;
+        const on = !!d.totpEnabled;
+        $('twoFaDot').className = 'wl-dot ' + (on ? 'on' : 'off');
+        $('twoFaText').textContent = on ? '2FA Aktif' : '2FA Nonaktif';
+        $('twoFaOn').classList.toggle('hidden', !on);
+        $('twoFaOff').classList.toggle('hidden', on);
+        if (on) $('twoFaSetup').classList.add('hidden');
+      } catch {}
+    }
+
+    // Ganti password
+    $('changePassBtn').addEventListener('click', async () => {
+      const currentPassword = $('curPass').value;
+      const newPassword = $('newPass').value;
+      const m = $('passMsg'); m.className = 'msg';
+      if (!currentPassword || !newPassword) { m.className = 'msg err'; m.textContent = 'Lengkapi kedua field.'; return; }
+      $('changePassBtn').disabled = true;
+      try {
+        const r = await fetch('/admin/change-password', { method: 'POST', headers: headers(), body: JSON.stringify({ currentPassword, newPassword }) });
+        if (r.status === 401 && !(await r.clone().json()).message?.includes('saat ini')) { signOut(); return; }
+        const d = await r.json();
+        m.className = 'msg ' + (d.success ? 'ok' : 'err');
+        m.textContent = (d.success ? '✅ ' : '❌ ') + d.message;
+        if (d.success) { $('curPass').value = ''; $('newPass').value = ''; }
+      } catch (e) { m.className = 'msg err'; m.textContent = '❌ ' + e.message; }
+      finally { $('changePassBtn').disabled = false; }
+    });
+
+    // Mulai setup 2FA -> tampilkan QR
+    $('setup2faBtn').addEventListener('click', async () => {
+      $('setup2faBtn').disabled = true;
+      try {
+        const r = await fetch('/admin/2fa/setup', { method: 'POST', headers: headers() });
+        if (r.status === 401) { signOut(); return; }
+        const d = await r.json();
+        if (d.success) {
+          $('twoFaQr').src = d.qr;
+          $('twoFaSecret').textContent = d.secret;
+          $('twoFaSetup').classList.remove('hidden');
+          $('twoFaOff').classList.add('hidden');
+        }
+      } catch {}
+      finally { $('setup2faBtn').disabled = false; }
+    });
+
+    // Konfirmasi & aktifkan 2FA
+    $('enable2faBtn').addEventListener('click', async () => {
+      const totp = $('enableTotp').value.trim();
+      const m = $('twoFaMsg'); m.className = 'msg';
+      if (!totp) { m.className = 'msg err'; m.textContent = 'Masukkan kode 6 digit.'; return; }
+      $('enable2faBtn').disabled = true;
+      try {
+        const r = await fetch('/admin/2fa/enable', { method: 'POST', headers: headers(), body: JSON.stringify({ totp }) });
+        const d = await r.json();
+        m.className = 'msg ' + (d.success ? 'ok' : 'err');
+        m.textContent = (d.success ? '✅ ' : '❌ ') + d.message;
+        if (d.success) { $('enableTotp').value = ''; refreshSecurity(); }
+      } catch (e) { m.className = 'msg err'; m.textContent = '❌ ' + e.message; }
+      finally { $('enable2faBtn').disabled = false; }
+    });
+
+    // Nonaktifkan 2FA
+    $('disable2faBtn').addEventListener('click', async () => {
+      const password = $('disablePass').value;
+      const m = $('twoFaMsg'); m.className = 'msg';
+      if (!password) { m.className = 'msg err'; m.textContent = 'Masukkan password.'; return; }
+      $('disable2faBtn').disabled = true;
+      try {
+        const r = await fetch('/admin/2fa/disable', { method: 'POST', headers: headers(), body: JSON.stringify({ password }) });
+        const d = await r.json();
+        m.className = 'msg ' + (d.success ? 'ok' : 'err');
+        m.textContent = (d.success ? '✅ ' : '❌ ') + d.message;
+        if (d.success) { $('disablePass').value = ''; refreshSecurity(); }
+      } catch (e) { m.className = 'msg err'; m.textContent = '❌ ' + e.message; }
+      finally { $('disable2faBtn').disabled = false; }
+    });
+
+    // ---------- INIT ----------
+    (async () => {
+      await loadConfig();
+      // Jika sudah ada token tersimpan, validasi dengan memanggil endpoint terproteksi
+      if (ADMIN_TOKEN) {
+        try {
+          const r = await fetch('/admin/stats', { headers: headers() });
+          if (r.ok) { showDashboard(); return; }
+        } catch {}
+        sessionStorage.removeItem('adminToken'); ADMIN_TOKEN = '';
+      }
+    })();
+  </script>
+</body>
+</html>
