@@ -7,17 +7,17 @@ import {
 import { Boom } from '@hapi/boom';
 import qrcode from 'qrcode-terminal';
 import pino from 'pino';
+import fs from 'fs';
 
 const logger = pino({ level: 'warn' });
 
 let sock = null;
 let connectionReady = false;
 let latestQR = null;
+let reconnectAttempts = 0;
+const MAX_RECONNECT_ATTEMPTS = 10;
+const BASE_RECONNECT_DELAY_MS = 3000;
 
-/**
- * Membuat koneksi ke WhatsApp. Sesi disimpan di folder ./auth
- * sehingga QR hanya perlu di-scan sekali.
- */
 export async function connectToWhatsApp() {
   const { state, saveCreds } = await useMultiFileAuthState('auth');
   const { version } = await fetchLatestBaileysVersion();
@@ -26,7 +26,7 @@ export async function connectToWhatsApp() {
     version,
     auth: state,
     logger,
-    printQRInTerminal: false, // kita render manual di bawah
+    printQRInTerminal: false,
   });
 
   sock.ev.on('creds.update', saveCreds);
@@ -44,21 +44,32 @@ export async function connectToWhatsApp() {
     if (connection === 'open') {
       connectionReady = true;
       latestQR = null;
+      reconnectAttempts = 0;
       console.log('✅ WhatsApp terhubung & siap mengirim OTP.');
+      reportRestrictionStatus();
     }
 
     if (connection === 'close') {
       connectionReady = false;
       const statusCode = new Boom(lastDisconnect?.error)?.output?.statusCode;
       const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
-      console.log(
-        `⚠️  Koneksi terputus (code ${statusCode}). ${
-          shouldReconnect ? 'Menyambung ulang...' : 'Sesi logout, scan ulang QR.'
-        }`,
-      );
-      if (shouldReconnect) {
-        connectToWhatsApp();
+
+      if (!shouldReconnect) {
+        reconnectAttempts = 0;
+        console.log('🔴 Sesi logout. Hapus folder ./auth lalu scan ulang QR.');
+        return;
       }
+
+      reconnectAttempts++;
+      if (reconnectAttempts > MAX_RECONNECT_ATTEMPTS) {
+        console.error(`🛑 Sudah ${reconnectAttempts - 1}x gagal reconnect (code ${statusCode}). Berhenti mencoba.`);
+        reconnectAttempts = 0;
+        return;
+      }
+
+      const delayMs = Math.min(BASE_RECONNECT_DELAY_MS * Math.pow(2, reconnectAttempts - 1), 5 * 60 * 1000);
+      console.log(`⚠️  Koneksi terputus (code ${statusCode}). Reconnect ke-${reconnectAttempts} dalam ${(delayMs / 1000).toFixed(0)}s...`);
+      setTimeout(() => connectToWhatsApp(), delayMs);
     }
   });
 
@@ -69,11 +80,35 @@ export function isReady() {
   return connectionReady;
 }
 
+export async function reportRestrictionStatus() {
+  if (!sock) return null;
+  let lock = null;
+  try {
+    lock = await sock.fetchAccountReachoutTimelock();
+    if (lock.isActive) {
+      const ends = lock.timeEnforcementEnds
+        ? lock.timeEnforcementEnds.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }) + ' WIB'
+        : 'tidak diketahui';
+      console.warn(`🔒 Akun DIBATASI WhatsApp (reach-out time-lock, type: ${lock.enforcementType}). Berakhir: ${ends}`);
+    } else {
+      console.log('🔓 Tidak ada reach-out time-lock aktif.');
+    }
+  } catch (e) {
+    console.warn(`⚠️  Gagal cek time-lock: ${describeError(e)}`);
+  }
+  try {
+    const cap = await sock.fetchNewChatMessageCap();
+    console.log('📊 Kuota chat baru:', JSON.stringify(cap));
+  } catch (e) {
+    console.warn(`⚠️  Gagal cek kuota chat baru: ${describeError(e)}`);
+  }
+  return lock;
+}
+
 export function getLatestQR() {
   return latestQR;
 }
 
-/** Samarkan nomor: 628521234089 -> 62852****089 */
 function maskNumber(n) {
   if (!n) return null;
   n = String(n);
@@ -81,10 +116,6 @@ function maskNumber(n) {
   return n.slice(0, 5) + '****' + n.slice(-3);
 }
 
-/**
- * Info akun WhatsApp yang sedang terhubung (nomor disamarkan & nama).
- * Nomor penuh sengaja TIDAK dikembalikan agar tidak bocor ke browser.
- */
 export function getUser() {
   if (!connectionReady || !sock?.user) return null;
   const rawNumber = sock.user.id?.split(':')[0] || null;
@@ -94,7 +125,6 @@ export function getUser() {
   };
 }
 
-/** Logout / putus tautan perangkat. Hapus sesi & minta scan QR ulang. */
 export async function logout() {
   if (!sock) throw new Error('Belum ada sesi aktif.');
   await sock.logout();
@@ -102,10 +132,25 @@ export async function logout() {
   latestQR = null;
 }
 
-/**
- * Normalisasi nomor menjadi JID WhatsApp.
- * Contoh: "08123456789" -> "628123456789@s.whatsapp.net"
- */
+export async function resetSession() {
+  if (sock) {
+    try { sock.end(new Error('Manual reset')); } catch {}
+    sock = null;
+  }
+  connectionReady = false;
+  latestQR = null;
+  reconnectAttempts = 0;
+
+  try {
+    fs.rmSync('auth', { recursive: true, force: true });
+    console.log('🗑️  Folder ./auth dihapus.');
+  } catch (e) {
+    console.warn('⚠️  Gagal hapus ./auth:', e.message);
+  }
+
+  await connectToWhatsApp();
+}
+
 export function toJid(phone, defaultCountryCode = '62') {
   let n = String(phone).replace(/\D/g, '');
   if (n.startsWith('0')) n = defaultCountryCode + n.slice(1);
@@ -115,38 +160,34 @@ export function toJid(phone, defaultCountryCode = '62') {
   return `${n}@s.whatsapp.net`;
 }
 
-/**
- * Mengirim pesan teks ke sebuah nomor.
- * Memverifikasi dulu bahwa nomor terdaftar di WhatsApp.
- */
 export async function sendMessage(phone, text) {
   if (!connectionReady || !sock) {
     throw new Error('WhatsApp belum terhubung. Coba lagi sebentar.');
   }
 
   const jid = toJid(phone);
-
-  // 1) Cek nomor terdaftar di WhatsApp
-  let result;
+  let targetJid = jid;
   try {
-    [result] = await sock.onWhatsApp(jid);
+    const results = await sock.onWhatsApp(jid);
+    console.log(`🔎 onWhatsApp ${phone} ->`, JSON.stringify(results));
+    const result = results?.[0];
+    if (result?.exists && result.jid) {
+      targetJid = result.jid;
+    } else {
+      console.warn(`⚠️  onWhatsApp tidak menemukan ${phone}; tetap mencoba kirim langsung ke ${jid}.`);
+    }
   } catch (e) {
-    throw new Error(`Gagal cek nomor (koneksi labil): ${describeError(e)}`);
-  }
-  if (!result?.exists) {
-    throw new Error(`Nomor ${phone} tidak terdaftar di WhatsApp.`);
+    console.warn(`⚠️  Gagal cek nomor ${phone} (${describeError(e)}); tetap mencoba kirim langsung.`);
   }
 
-  // 2) Kirim pesan
   try {
-    await sock.sendMessage(result.jid, { text });
+    await sock.sendMessage(targetJid, { text });
   } catch (e) {
     throw new Error(`Gagal mengirim pesan: ${describeError(e)}`);
   }
-  return { jid: result.jid };
+  return { jid: targetJid };
 }
 
-/** Ubah error apa pun (Error, Boom, string, objek) menjadi teks yang informatif. */
 function describeError(e) {
   if (!e) return 'unknown error';
   if (typeof e === 'string') return e;

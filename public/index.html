@@ -144,7 +144,15 @@
                 <div class="num" id="uNumber">—</div>
                 <div class="sub" id="uName">Terhubung</div>
               </div>
-              <button class="danger full" id="unlinkBtn" style="margin-top:14px">Unlink Perangkat</button>
+              <div style="display:flex;gap:8px;margin-top:14px">
+                <button class="danger full" id="unlinkBtn">Unlink Perangkat</button>
+                <button class="danger full" id="resetSesiBtn" style="border-color:#f0b232;color:#f0b232" title="Hapus sesi & scan QR ulang">Reset Sesi</button>
+              </div>
+            </div>
+            <!-- Saat sesi logout (tidak ada QR, tidak konek) -->
+            <div id="resetArea" class="hidden">
+              <p style="color:var(--red);font-size:13px;margin-bottom:10px">⚠️ Sesi logout atau tidak valid. Reset untuk scan QR baru.</p>
+              <button class="danger full" id="resetSesiBtnOff">🔄 Reset Sesi & Scan QR Baru</button>
             </div>
             <div id="connectingArea" class="qr-hint">Menyambungkan…</div>
           </div>
@@ -329,17 +337,18 @@
         const d = await (await fetch('/status')).json();
         if (d.ready) {
           $('dot').className = 'dot ready'; $('connText').textContent = 'Terhubung';
-          $('qrArea').classList.add('hidden'); $('connectingArea').classList.add('hidden');
+          $('qrArea').classList.add('hidden'); $('connectingArea').classList.add('hidden'); $('resetArea').classList.add('hidden');
           $('userArea').classList.remove('hidden');
           $('uNumber').textContent = '+' + (d.user?.number || '');
           $('uName').textContent = d.user?.name ? d.user.name : 'Terhubung';
         } else if (d.qr) {
           $('dot').className = 'dot'; $('connText').textContent = 'Menunggu scan';
           $('qrImg').src = d.qr;
-          $('qrArea').classList.remove('hidden'); $('userArea').classList.add('hidden'); $('connectingArea').classList.add('hidden');
+          $('qrArea').classList.remove('hidden'); $('userArea').classList.add('hidden'); $('connectingArea').classList.add('hidden'); $('resetArea').classList.add('hidden');
         } else {
+          // Tidak ada QR dan tidak terhubung — kemungkinan baru saja logout/reset
           $('dot').className = 'dot off'; $('connText').textContent = 'Menyambungkan';
-          $('connectingArea').classList.remove('hidden'); $('qrArea').classList.add('hidden'); $('userArea').classList.add('hidden');
+          $('connectingArea').classList.remove('hidden'); $('qrArea').classList.add('hidden'); $('userArea').classList.add('hidden'); $('resetArea').classList.add('hidden');
         }
       } catch { $('dot').className = 'dot off'; $('connText').textContent = 'Offline'; }
     }
@@ -463,6 +472,7 @@ curl_close($ch);`;
 
     // ---------- UNLINK ----------
     $('unlinkBtn').addEventListener('click', async () => {
+      if (!confirm('Yakin ingin unlink perangkat? WhatsApp di server akan terputus.')) return;
       $('unlinkBtn').disabled = true;
       try {
         await fetch('/admin/logout', { method: 'POST', headers: headers() });
@@ -470,6 +480,21 @@ curl_close($ch);`;
       $('unlinkBtn').disabled = false;
       refreshStatus();
     });
+
+    async function doResetSesi(btn) {
+      if (!confirm('Reset sesi akan menghapus data login (./auth) dan memunculkan QR baru. Lanjutkan?')) return;
+      btn.disabled = true;
+      btn.textContent = '⏳ Mereset…';
+      try {
+        const r = await fetch('/admin/reset-session', { method: 'POST', headers: headers() });
+        const d = await r.json();
+        if (!d.success) alert('Gagal reset: ' + d.message);
+      } catch (e) { alert('Error: ' + e.message); }
+      finally { btn.disabled = false; btn.textContent = btn.id === 'resetSesiBtn' ? 'Reset Sesi' : '🔄 Reset Sesi & Scan QR Baru'; }
+      setTimeout(refreshStatus, 2500);
+    }
+    $('resetSesiBtn').addEventListener('click', () => doResetSesi($('resetSesiBtn')));
+    $('resetSesiBtnOff').addEventListener('click', () => doResetSesi($('resetSesiBtnOff')));
 
     // ---------- KEAMANAN AKUN ----------
     async function refreshSecurity() {
