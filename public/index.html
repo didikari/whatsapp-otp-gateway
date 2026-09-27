@@ -4,91 +4,157 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>WhatsApp OTP — Admin Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --bg: #0b141a; --panel: #111b21; --panel2: #1d282f;
-      --border: #222d34; --text: #e9edef; --muted: #8696a0;
-      --green: #00a884; --green2: #06cf9c; --red: #f15c6d; --yellow: #f0b232;
+      --bg-start: #0f172a; --bg-end: #1e293b;
+      --panel: rgba(30, 41, 59, 0.7); --panel2: rgba(51, 65, 85, 0.5);
+      --border: rgba(100, 116, 139, 0.3); --text: #f8fafc; --muted: #94a3b8;
+      --green: #10b981; --green-hover: #059669; --green-light: rgba(16, 185, 129, 0.15);
+      --red: #ef4444; --red-light: rgba(239, 68, 68, 0.15);
+      --yellow: #f59e0b;
+      --shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+      --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
     }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+    body { 
+      font-family: 'Inter', sans-serif; 
+      background: linear-gradient(135deg, var(--bg-start), var(--bg-end)); 
+      color: var(--text); 
+      min-height: 100vh;
+      background-attachment: fixed;
+    }
+
+    /* SCROLLBAR */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+
+    /* UTILITIES */
+    .glass {
+      background: var(--panel);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--border);
+    }
+    .full { width: 100%; }
+    .hidden { display: none !important; }
 
     /* LOGIN */
-    .login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
-    .login-card { background: var(--panel); border: 1px solid var(--border); border-radius: 16px; padding: 32px; width: 100%; max-width: 360px; }
-    .login-card h1 { font-size: 20px; margin-bottom: 6px; }
-    .login-card p { color: var(--muted); font-size: 13px; margin-bottom: 22px; }
+    .login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; position: relative; overflow: hidden; }
+    .login-wrap::before {
+      content: ""; position: absolute; width: 400px; height: 400px; background: var(--green);
+      filter: blur(150px); opacity: 0.15; border-radius: 50%; top: -100px; left: -100px; z-index: 0;
+    }
+    .login-card { background: var(--panel); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid var(--border); border-radius: 20px; padding: 40px; width: 100%; max-width: 400px; box-shadow: var(--shadow); position: relative; z-index: 1; }
+    .login-card h1 { font-size: 24px; font-weight: 700; margin-bottom: 8px; letter-spacing: -0.5px; }
+    .login-card p { color: var(--muted); font-size: 14px; margin-bottom: 28px; }
 
-    label { display: block; font-size: 13px; color: var(--muted); margin: 14px 0 6px; }
-    input { width: 100%; padding: 12px 14px; border-radius: 10px; border: 1px solid #2a3942; background: var(--panel2); color: var(--text); font-size: 15px; }
-    input:focus { outline: none; border-color: var(--green); }
-    button { padding: 12px 16px; background: var(--green); color: #fff; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; }
-    button:hover { background: var(--green2); }
-    button:disabled { background: #2a3942; cursor: not-allowed; }
+    label { display: block; font-size: 13px; font-weight: 500; color: var(--muted); margin: 16px 0 8px; }
+    input { 
+      width: 100%; padding: 14px 16px; border-radius: 12px; border: 1px solid var(--border); 
+      background: var(--panel2); color: var(--text); font-size: 15px; font-family: 'Inter', sans-serif;
+      transition: all 0.2s ease; 
+    }
+    input:focus { outline: none; border-color: var(--green); background: rgba(30, 41, 59, 0.8); box-shadow: 0 0 0 3px var(--green-light); }
+    
+    button { 
+      padding: 14px 20px; background: var(--green); color: #fff; border: none; border-radius: 12px; 
+      font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.2s ease;
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-family: 'Inter', sans-serif;
+    }
+    button:hover:not(:disabled) { background: var(--green-hover); transform: translateY(-1px); box-shadow: 0 4px 12px var(--green-light); }
+    button:active:not(:disabled) { transform: translateY(0); }
+    button:disabled { background: #334155; color: #94a3b8; cursor: not-allowed; }
     button.ghost { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    button.ghost:hover { background: rgba(255,255,255,0.05); }
     button.danger { background: transparent; border: 1px solid var(--red); color: var(--red); }
-    button.danger:hover { background: rgba(241,92,109,.12); }
-    .full { width: 100%; }
+    button.danger:hover:not(:disabled) { background: var(--red-light); box-shadow: 0 4px 12px var(--red-light); }
 
     /* DASHBOARD */
-    .topbar { display: flex; align-items: center; justify-content: space-between; padding: 16px 24px; background: var(--panel); border-bottom: 1px solid var(--border); }
-    .topbar .brand { font-size: 17px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
-    .topbar .right { display: flex; align-items: center; gap: 14px; }
-    .conn { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
-    .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--yellow); }
-    .dot.ready { background: var(--green); }
-    .dot.off { background: var(--red); }
+    .topbar { 
+      display: flex; align-items: center; justify-content: space-between; padding: 16px 32px; 
+      background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); 
+      position: sticky; top: 0; z-index: 100;
+    }
+    .topbar .brand { font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 10px; letter-spacing: -0.5px; }
+    .topbar .brand span { padding: 4px 8px; background: rgba(255,255,255,0.1); border-radius: 6px; font-size: 12px; font-weight: 500; }
+    .topbar .right { display: flex; align-items: center; gap: 20px; }
+    
+    .conn { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 500; color: var(--text); background: var(--panel2); padding: 8px 16px; border-radius: 20px; border: 1px solid var(--border); }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--yellow); box-shadow: 0 0 8px var(--yellow); }
+    .dot.ready { background: var(--green); box-shadow: 0 0 8px var(--green); }
+    .dot.off { background: var(--red); box-shadow: 0 0 8px var(--red); }
 
-    .container { max-width: 1100px; margin: 0 auto; padding: 24px; }
-    .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
-    .stat { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 18px; }
-    .stat .num { font-size: 28px; font-weight: 700; }
-    .stat .lbl { color: var(--muted); font-size: 13px; margin-top: 4px; }
-    .stat.green .num { color: var(--green2); }
+    .container { max-width: 1200px; margin: 0 auto; padding: 32px 24px; }
+    
+    .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 32px; }
+    .stat { background: rgba(30, 41, 59, 0.6); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid var(--border); border-radius: 16px; padding: 24px; transition: transform 0.2s ease, box-shadow 0.2s ease; box-shadow: var(--shadow-sm); }
+    .stat:hover { transform: translateY(-4px); box-shadow: var(--shadow); }
+    .stat .num { font-size: 36px; font-weight: 700; letter-spacing: -1px; margin-bottom: 4px; }
+    .stat .lbl { color: var(--muted); font-size: 14px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
+    .stat.green .num { color: var(--green); }
     .stat.red .num { color: var(--red); }
 
-    .cols { display: grid; grid-template-columns: 1fr 1.4fr; gap: 16px; }
-    .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 20px; }
-    .panel h2 { font-size: 15px; margin-bottom: 14px; }
+    .cols { display: grid; grid-template-columns: 1fr 1.6fr; gap: 24px; }
+    .panel { background: rgba(30, 41, 59, 0.6); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid var(--border); border-radius: 20px; padding: 28px; box-shadow: var(--shadow-sm); }
+    .panel h2 { font-size: 18px; font-weight: 600; margin-bottom: 20px; letter-spacing: -0.3px; display: flex; align-items: center; gap: 8px; }
 
-    .qr-box { text-align: center; padding: 16px; background: #fff; border-radius: 12px; }
-    .qr-box img { width: 100%; max-width: 240px; }
-    .qr-hint { color: var(--muted); font-size: 12px; margin-top: 12px; text-align: center; }
-    .user-info { background: var(--panel2); border-radius: 10px; padding: 14px; font-size: 14px; }
-    .user-info .num { font-size: 17px; font-weight: 600; }
-    .user-info .sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+    .qr-box { text-align: center; padding: 24px; background: #fff; border-radius: 16px; margin: 0 auto; max-width: 280px; box-shadow: 0 0 0 1px rgba(0,0,0,0.1); }
+    .qr-box img { width: 100%; display: block; }
+    .qr-hint { color: var(--muted); font-size: 13px; margin-top: 16px; text-align: center; line-height: 1.5; }
+    
+    .user-info { background: rgba(15, 23, 42, 0.4); border: 1px solid var(--border); border-radius: 12px; padding: 20px; text-align: center; }
+    .user-info .num { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
+    .user-info .sub { color: var(--green); font-size: 14px; font-weight: 500; margin-top: 6px; display: inline-flex; align-items: center; gap: 6px; background: var(--green-light); padding: 4px 12px; border-radius: 20px; }
 
-    .msg { margin-top: 14px; padding: 11px 14px; border-radius: 10px; font-size: 13px; display: none; }
-    .msg.ok { background: rgba(0,168,132,.15); color: var(--green2); display: block; }
-    .msg.err { background: rgba(241,92,109,.15); color: var(--red); display: block; }
+    .msg { margin-top: 16px; padding: 14px 16px; border-radius: 12px; font-size: 14px; font-weight: 500; display: none; }
+    .msg.ok { background: var(--green-light); color: var(--green); display: block; border: 1px solid rgba(16, 185, 129, 0.3); }
+    .msg.err { background: var(--red-light); color: var(--red); display: block; border: 1px solid rgba(239, 68, 68, 0.3); }
 
-    table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--border); }
-    th { color: var(--muted); font-weight: 500; }
-    .badge { font-size: 11px; padding: 3px 8px; border-radius: 20px; }
-    .badge.success { background: rgba(0,168,132,.15); color: var(--green2); }
-    .badge.failed { background: rgba(241,92,109,.15); color: var(--red); }
-    .empty { color: var(--muted); text-align: center; padding: 24px; font-size: 13px; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { text-align: left; padding: 14px 12px; border-bottom: 1px solid var(--border); }
+    th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+    tr:last-child td { border-bottom: none; }
+    .badge { font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 20px; display: inline-block; }
+    .badge.success { background: var(--green-light); color: var(--green); }
+    .badge.failed { background: var(--red-light); color: var(--red); }
+    .empty { color: var(--muted); text-align: center; padding: 40px; font-size: 15px; background: rgba(15, 23, 42, 0.4); border-radius: 12px; border: 1px dashed var(--border); margin-top: 16px; }
 
-    .cred-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 8px; }
-    .copy-field { display: flex; align-items: center; gap: 8px; background: var(--panel2); border: 1px solid #2a3942; border-radius: 10px; padding: 8px 10px; }
-    .copy-field code { flex: 1; font-size: 13px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: 'SF Mono', Menlo, monospace; }
-    .copy-btn { padding: 6px 12px; font-size: 12px; border-radius: 8px; background: var(--green); }
-    .copy-btn.ghost-mini { background: transparent; border: 1px solid var(--border); color: var(--muted); }
-    .code-block { position: relative; background: #0d171e; border: 1px solid #2a3942; border-radius: 10px; padding: 14px; margin-top: 6px; }
-    .code-block pre { font-family: 'SF Mono', Menlo, monospace; font-size: 12.5px; color: #c3cdd4; white-space: pre-wrap; word-break: break-all; line-height: 1.6; }
-    .code-block .copy-btn { position: absolute; top: 10px; right: 10px; }
-    .wl-box { display: flex; align-items: center; gap: 8px; background: var(--panel2); border: 1px solid #2a3942; border-radius: 10px; padding: 10px 12px; font-size: 13px; flex-wrap: wrap; }
-    .wl-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); flex: none; }
-    .wl-dot.on { background: var(--green); }
-    .wl-dot.off { background: var(--yellow); }
-    .wl-ips { color: var(--muted); font-family: 'SF Mono', Menlo, monospace; font-size: 12px; }
-    .sec-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
-    @media (max-width: 800px) { .sec-grid { grid-template-columns: 1fr; } }
-    .panel code { background: var(--panel2); padding: 2px 6px; border-radius: 5px; font-size: 12px; }
-    @media (max-width: 800px) { .cred-grid { grid-template-columns: 1fr; } }
-    .hidden { display: none !important; }
-    @media (max-width: 800px) { .grid { grid-template-columns: repeat(2,1fr); } .cols { grid-template-columns: 1fr; } }
+    .cred-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 16px; }
+    .copy-field { display: flex; align-items: center; gap: 8px; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border); border-radius: 12px; padding: 8px 8px 8px 16px; }
+    .copy-field code { flex: 1; font-size: 14px; color: var(--green); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: 'SF Mono', Consolas, Menlo, monospace; }
+    .copy-btn { padding: 8px 14px; font-size: 13px; border-radius: 8px; }
+    .copy-btn.ghost-mini { background: transparent; border: 1px solid var(--border); color: var(--text); padding: 8px 12px; }
+    
+    .code-block { position: relative; background: #0f172a; border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-top: 8px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.2); }
+    .code-block pre { font-family: 'SF Mono', Consolas, Menlo, monospace; font-size: 13px; color: #cbd5e1; white-space: pre-wrap; word-break: break-all; line-height: 1.6; }
+    .code-block .copy-btn { position: absolute; top: 12px; right: 12px; padding: 6px 12px; font-size: 12px; background: rgba(255,255,255,0.1); }
+    .code-block .copy-btn:hover { background: rgba(255,255,255,0.2); }
+    
+    .wl-box { display: flex; align-items: center; gap: 12px; background: rgba(15, 23, 42, 0.4); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; font-size: 14px; flex-wrap: wrap; }
+    .wl-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); flex: none; }
+    .wl-dot.on { background: var(--green); box-shadow: 0 0 8px var(--green); }
+    .wl-dot.off { background: var(--yellow); box-shadow: 0 0 8px var(--yellow); }
+    .wl-ips { color: var(--green); font-family: 'SF Mono', Consolas, Menlo, monospace; font-size: 13px; padding: 4px 8px; background: rgba(16, 185, 129, 0.1); border-radius: 6px; }
+    
+    .sec-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
+    .panel code { background: rgba(15, 23, 42, 0.6); padding: 4px 8px; border-radius: 6px; font-size: 13px; font-family: 'SF Mono', Consolas, Menlo, monospace; color: #94a3b8; border: 1px solid var(--border); }
+    
+    /* Responsive */
+    @media (max-width: 900px) { 
+      .grid { grid-template-columns: repeat(2, 1fr); } 
+      .cols { grid-template-columns: 1fr; }
+      .sec-grid, .cred-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 500px) {
+      .grid { grid-template-columns: 1fr; }
+      .topbar { flex-direction: column; gap: 16px; padding: 16px; }
+    }
   </style>
 </head>
 <body>
@@ -104,6 +170,7 @@
         <label for="loginTotp">Kode Authenticator (2FA)</label>
         <input id="loginTotp" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6 digit" />
       </div>
+      <div id="turnstile-widget" style="margin-top: 16px;"></div>
       <button class="full" id="loginBtn" style="margin-top:18px">Masuk</button>
       <div id="loginMsg" class="msg"></div>
     </div>
@@ -176,6 +243,11 @@
             <tbody id="historyBody"></tbody>
           </table>
           <div id="historyEmpty" class="empty">Belum ada pengiriman.</div>
+          <div id="pagination" style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px;">
+            <button id="prevPageBtn" class="ghost" disabled style="padding: 8px 12px; font-size: 13px;">&larr; Sebelumnya</button>
+            <span id="pageInfo" style="font-size: 13px; color: var(--muted); font-weight: 500;">Halaman 1</span>
+            <button id="nextPageBtn" class="ghost" disabled style="padding: 8px 12px; font-size: 13px;">Selanjutnya &rarr;</button>
+          </div>
         </div>
       </div>
 
@@ -268,18 +340,37 @@
 
   <script>
     const $ = (id) => document.getElementById(id);
-    let ADMIN_TOKEN = sessionStorage.getItem('adminToken') || '';
+    let ADMIN_TOKEN = localStorage.getItem('adminToken') || '';
     let TOTP_ENABLED = false;
+
+    // Sembunyikan login form sementara jika ada token, untuk menghindari kedipan (flash) saat validasi
+    if (ADMIN_TOKEN) {
+      $('loginView').classList.add('hidden');
+    }
 
     // Header auth untuk semua request admin (session token)
     function headers() { return { 'Content-Type': 'application/json', 'x-admin-token': ADMIN_TOKEN }; }
 
     // Cek apakah TOTP wajib, tampilkan field bila perlu
+    let TURNSTILE_SITEKEY = null;
+    let turnstileWidgetId = null;
+
     async function loadConfig() {
       try {
         const c = await (await fetch('/admin/config')).json();
         TOTP_ENABLED = !!c.totpEnabled;
         $('totpField').classList.toggle('hidden', !TOTP_ENABLED);
+        if (c.turnstileSiteKey) {
+          TURNSTILE_SITEKEY = c.turnstileSiteKey;
+          const initWidget = () => {
+            if (window.turnstile) {
+              turnstileWidgetId = turnstile.render('#turnstile-widget', { sitekey: TURNSTILE_SITEKEY, theme: 'dark' });
+            } else {
+              setTimeout(initWidget, 200);
+            }
+          };
+          initWidget();
+        }
       } catch {}
     }
 
@@ -291,25 +382,36 @@
       if (TOTP_ENABLED && !totp) {
         $('loginMsg').className = 'msg err'; $('loginMsg').textContent = 'Masukkan kode authenticator.'; return;
       }
+      
+      let turnstileToken = '';
+      if (TURNSTILE_SITEKEY && window.turnstile) {
+        turnstileToken = turnstile.getResponse(turnstileWidgetId) || '';
+        if (!turnstileToken) {
+          $('loginMsg').className = 'msg err'; $('loginMsg').textContent = 'Harap centang verifikasi keamanan (Captcha).'; return;
+        }
+      }
+
       $('loginBtn').disabled = true;
       try {
         const r = await fetch('/admin/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password, totp }),
+          body: JSON.stringify({ password, totp, turnstileToken }),
         });
         const d = await r.json();
         if (r.ok && d.success && d.token) {
           ADMIN_TOKEN = d.token;
-          sessionStorage.setItem('adminToken', d.token);
+          localStorage.setItem('adminToken', d.token);
           $('loginPass').value = ''; $('loginTotp').value = '';
           showDashboard();
         } else {
           $('loginMsg').className = 'msg err';
           $('loginMsg').textContent = d.message || 'Login gagal.';
+          if (TURNSTILE_SITEKEY && window.turnstile) turnstile.reset(turnstileWidgetId);
         }
       } catch (e) {
         $('loginMsg').className = 'msg err'; $('loginMsg').textContent = 'Server tidak terjangkau.';
+        if (TURNSTILE_SITEKEY && window.turnstile) turnstile.reset(turnstileWidgetId);
       } finally {
         $('loginBtn').disabled = false;
       }
@@ -319,7 +421,7 @@
 
     async function signOut() {
       try { await fetch('/admin/signout', { method: 'POST', headers: headers() }); } catch {}
-      sessionStorage.removeItem('adminToken'); ADMIN_TOKEN = '';
+      localStorage.removeItem('adminToken'); ADMIN_TOKEN = '';
       $('dashView').classList.add('hidden'); $('loginView').classList.remove('hidden');
     }
     $('logoutAdminBtn').addEventListener('click', signOut);
@@ -360,13 +462,25 @@
       } catch {}
     }
 
+    let currentPage = 1;
+    const itemsPerPage = 10;
+    
     async function refreshHistory() {
       try {
-        const d = await (await fetch('/admin/history', { headers: headers() })).json();
+        const d = await (await fetch(`/admin/history?page=${currentPage}&limit=${itemsPerPage}`, { headers: headers() })).json();
         if (!d.success) return;
+        
+        const totalItems = Number($('stTotal').textContent) || 0;
+        const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+        
+        $('pageInfo').textContent = `Halaman ${currentPage} dari ${totalPages}`;
+        $('prevPageBtn').disabled = currentPage <= 1;
+        $('nextPageBtn').disabled = currentPage >= totalPages || d.history.length < itemsPerPage;
+
         const tbody = $('historyBody'); tbody.innerHTML = '';
         if (!d.history.length) { $('historyEmpty').style.display = 'block'; return; }
         $('historyEmpty').style.display = 'none';
+        
         for (const h of d.history) {
           const tr = document.createElement('tr');
           const t = new Date(h.at).toLocaleString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
@@ -375,6 +489,13 @@
         }
       } catch {}
     }
+
+    $('prevPageBtn').addEventListener('click', () => {
+      if (currentPage > 1) { currentPage--; refreshHistory(); }
+    });
+    $('nextPageBtn').addEventListener('click', () => {
+      currentPage++; refreshHistory();
+    });
 
     // ---------- KREDENSIAL & CONTOH KODE ----------
     let fullSecret = '';
@@ -586,7 +707,8 @@ curl_close($ch);`;
           const r = await fetch('/admin/stats', { headers: headers() });
           if (r.ok) { showDashboard(); return; }
         } catch {}
-        sessionStorage.removeItem('adminToken'); ADMIN_TOKEN = '';
+        localStorage.removeItem('adminToken'); ADMIN_TOKEN = '';
+        $('loginView').classList.remove('hidden'); // Munculkan form login karena sesi tidak valid
       }
     })();
   </script>

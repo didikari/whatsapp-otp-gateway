@@ -67,6 +67,22 @@ function adminAuth(req, res, next) {
   next();
 }
 
+const bruteForceLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 menit
+  max: 20, // maksimal 20 kali percobaan gagal
+  skipSuccessfulRequests: true, // hanya hitung request yang gagal (4xx dan 5xx)
+  skip: (req) => {
+    // Abaikan rate limit untuk IP yang di-whitelist
+    if (ipWhitelist.check && ipWhitelist.check(req.ip)) return true;
+    return false;
+  },
+  keyGenerator: (req) => ipKeyGenerator(req.ip),
+  message: { success: false, status: false, message: 'Terlalu banyak percobaan gagal (Brute Force Protection). IP Anda diblokir sementara.' },
+});
+
+// Terapkan perlindungan brute force secara global (sebelum auth)
+app.use(bruteForceLimiter);
+
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
@@ -77,8 +93,9 @@ const loginLimiter = rateLimit({
 const otpLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: RATE_LIMIT,
-  keyGenerator: (req) => req.body?.target || req.body?.phone || ipKeyGenerator(req.ip),
-  message: { success: false, message: 'Terlalu banyak permintaan OTP. Coba lagi nanti.' },
+  // Memisahkan limit per IP dan target, agar tidak bisa diakali dengan mengganti nomor tujuan
+  keyGenerator: (req) => ipKeyGenerator(req.ip) + '_' + (req.body?.target || req.body?.phone || ''),
+  message: { success: false, status: false, message: 'Terlalu banyak permintaan OTP ke nomor ini. Coba lagi nanti.' },
 });
 
 app.get('/health', (req, res) => {
@@ -93,13 +110,36 @@ app.get('/status', async (req, res) => {
 });
 
 app.get('/admin/config', async (req, res) => {
-  res.json({ totpEnabled: await isTotpEnabled() });
+  res.json({ 
+    totpEnabled: await isTotpEnabled(),
+    turnstileSiteKey: process.env.TURNSTILE_SITE_KEY || null
+  });
 });
 
 app.post('/admin/login', loginLimiter, async (req, res) => {
   try {
     const password = req.body?.password ?? req.headers['x-admin-password'] ?? '';
     const totp = String(req.body?.totp || '').trim();
+    const turnstileToken = req.body?.turnstileToken || '';
+
+    if (process.env.TURNSTILE_SECRET_KEY) {
+      if (!turnstileToken) {
+        return res.status(401).json({ success: false, message: 'Harap selesaikan verifikasi keamanan (Captcha).' });
+      }
+      const formData = new URLSearchParams();
+      formData.append('secret', process.env.TURNSTILE_SECRET_KEY);
+      formData.append('response', turnstileToken);
+      formData.append('remoteip', req.ip);
+      
+      const tsRes = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+        method: 'POST',
+        body: formData
+      });
+      const tsData = await tsRes.json();
+      if (!tsData.success) {
+        return res.status(401).json({ success: false, message: 'Verifikasi keamanan gagal, coba muat ulang halaman.' });
+      }
+    }
 
     if (!(await verifyPassword(password))) {
       return res.status(401).json({ success: false, message: 'Password salah.' });
@@ -131,7 +171,7 @@ app.get('/admin/security', adminAuth, async (req, res) => {
   res.json({ success: true, totpEnabled: await isTotpEnabled() });
 });
 
-app.post('/admin/change-password', adminAuth, async (req, res) => {
+app.post('/admin/change-password', adminAuth, loginLimiter, async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body || {};
     if (!newPassword || String(newPassword).length < 6) {
@@ -177,7 +217,7 @@ app.post('/admin/2fa/enable', adminAuth, async (req, res) => {
   }
 });
 
-app.post('/admin/2fa/disable', adminAuth, async (req, res) => {
+app.post('/admin/2fa/disable', adminAuth, loginLimiter, async (req, res) => {
   try {
     if (!(await verifyPassword(req.body?.password || ''))) {
       return res.status(401).json({ success: false, message: 'Password salah.' });
@@ -209,7 +249,10 @@ app.get('/admin/stats', adminAuth, async (req, res) => {
 
 app.get('/admin/history', adminAuth, async (req, res) => {
   try {
-    res.json({ success: true, history: await getHistory(50) });
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.max(1, Math.min(100, Number(req.query.limit) || 10));
+    const offset = (page - 1) * limit;
+    res.json({ success: true, history: await getHistory(limit, offset) });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

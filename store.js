@@ -15,11 +15,11 @@ export async function record({ phone, status, type = 'message', error = null }) 
   );
 }
 
-/** Ambil riwayat terbaru (nomor sudah disamarkan). */
-export async function getHistory(limit = 50) {
+/** Ambil riwayat terbaru (nomor sudah disamarkan) dengan pagination. */
+export async function getHistory(limit = 10, offset = 0) {
   const [rows] = await pool.query(
-    'SELECT id, target_masked AS phone, type, status, created_at AS at FROM messages ORDER BY id DESC LIMIT ?',
-    [Number(limit)],
+    'SELECT id, target_masked AS phone, type, status, created_at AS at FROM messages ORDER BY id DESC LIMIT ? OFFSET ?',
+    [Number(limit), Number(offset)],
   );
   return rows;
 }

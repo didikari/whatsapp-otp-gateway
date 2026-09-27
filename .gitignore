@@ -3,3 +3,4 @@ auth/
 .env
 logs/
 *.log
+.DS_Store

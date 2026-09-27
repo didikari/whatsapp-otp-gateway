@@ -74,5 +74,10 @@ export function createIpWhitelist(allowedRaw) {
   // Metadata untuk ditampilkan di dashboard
   ipWhitelist.enabled = enabled;
   ipWhitelist.list = list;
+  ipWhitelist.check = (ip) => {
+    if (!enabled) return true;
+    const normalizedIp = normalize(ip);
+    return list.some((entry) => matchEntry(normalizedIp, entry));
+  };
   return ipWhitelist;
 }
